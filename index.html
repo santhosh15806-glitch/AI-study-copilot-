@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudyBot - 30-Day Adaptive Study Plan</title>
+<style>
+body { font-family: Arial, sans-serif; margin:0; padding:0; background: linear-gradient(to right, #6a11cb, #2575fc); color:#fff;}
+.container { max-width: 900px; margin:auto; padding:20px; }
+h1, h2, h3 {text-align:center;}
+input, select { padding:10px; width:70%; border-radius:5px; border:none; margin-right:10px; }
+button { padding:10px 15px; border:none; border-radius:5px; cursor:pointer; background:#ffb800; color:#000; margin-top:10px; width:100%; margin-bottom:5px;}
+.quiz, .notes, .plan, .badges, .popup { margin-top:20px; padding:15px; background: rgba(255,255,255,0.1); border-radius:10px;}
+.progress { width:100%; background: rgba(255,255,255,0.3); border-radius:5px; margin-top:10px; height:20px;}
+.progress-bar { height:20px; width:0%; background:#ffb800; border-radius:5px; transition: width 0.5s; }
+.badge { display:inline-block; margin:5px; padding:5px 10px; background:#ffb800; color:#000; border-radius:5px;}
+a { color:#ffb800; text-decoration:underline; }
+.module-day { cursor:pointer; margin:5px 0; padding:5px 10px; background: rgba(255,255,255,0.2); border-radius:5px; transition:0.3s;}
+.module-day:hover { background: rgba(255,255,255,0.4);}
+.completed { background: rgba(255,184,0,0.8) !important; text-decoration:line-through;}
+.popup { position:fixed; top:20px; right:20px; padding:15px; background:#ffb800; color:#000; border-radius:10px; animation:fadeout 3s forwards; font-weight:bold;}
+@keyframes fadeout { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0;display:none;} }
+</style>
+</head>
+<body>
+<div class="container">
+ <h1>🎓 StudyBot - 30-Day Adaptive Study Plan</h1>
+
+ <div id="topicScreen">
+   <select id="subjectSelect">
+     <option value="">Select Subject</option>
+     <option value="calculus">Calculus</option>
+     <option value="physics">Physics</option>
+     <option value="thermodynamics">Thermodynamics</option>
+     <option value="chemistry">Chemistry</option>
+     <option value="biology">Biology</option>
+   </select>
+   <button onclick="startQuiz()">Start Assessment</button>
+ </div>
+
+ <div id="quizContainer" class="quiz" style="display:none;"></div>
+ <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+ <div id="notesContainer" class="notes" style="display:none;"></div>
+ <div id="planContainer" class="plan" style="display:none"></div>
+ <div id="badgeContainer" class="badges" style="display:none"></div>
+ <div id="popupContainer"></div>
+</div>
+
+<script>
+// ======== QUIZ DATA =========
+const quizQuestions = [
+  "How familiar are you with this subject?",
+  "Have you studied it before?",
+  "Can you solve problems in this topic?",
+  "Do you know the main concepts?",
+  "Do you feel confident explaining it?"
+];
+const quizOptions = [
+  ["Not at all","Some basics","Intermediate","Advanced"],
+  ["No","Yes, briefly","Yes, moderately","Yes, in-depth"],
+  ["No","Few problems","Some problems","Many problems"],
+  ["No","Few concepts","Some concepts","Most concepts"],
+  ["No","Somewhat","Mostly","Yes"]
+];
+
+let currentQuestion=0, answers=[], streak=Number(localStorage.getItem('streak')||0);
+let selectedSubject="";
+
+// ======== SUBJECT MODULES =========
+const subjects = {
+  calculus: [
+    {day:1, topic:"Limits & Continuity", notes:"Understand limits of functions", practice:["Compute limits"], video:"https://www.youtube.com/watch?v=7g5d0BswbGM"},
+    {day:2, topic:"Derivatives Basics", notes:"Learn derivative rules", practice:["Differentiate polynomials"], video:"https://www.youtube.com/watch?v=3ZgY4CSdNgg"},
+    {day:3, topic:"Applications of Derivatives", notes:"Solve maxima/minima", practice:["Find local maxima/minima"], video:"https://www.youtube.com/watch?v=F3qNQpHfD1Y"},
+    {day:4, topic:"Integrals Basics", notes:"Compute simple integrals", practice:["Indefinite integrals"], video:"https://www.youtube.com/watch?v=4Jlqf1ZxI6g"},
+    {day:5, topic:"Applications of Integrals", notes:"Area & volume calculations", practice:["Area under curve"], video:"https://www.youtube.com/watch?v=0L5qL1pZxq4"},
+    {day:6, topic:"Advanced Techniques", notes:"Integration by parts/substitution", practice:["Advanced integrals"], video:"https://www.youtube.com/watch?v=dzsK7YrX0Z8"},
+  ],
+  physics: [
+    {day:1, topic:"Kinematics Basics", notes:"Displacement, velocity", practice:["Compute displacement"], video:"https://www.youtube.com/watch?v=V-xGBvLZhJ8"},
+    {day:2, topic:"Newton's Laws", notes:"Force, mass, acceleration", practice:["Solve F=ma problems"], video:"https://www.youtube.com/watch?v=kKKM8Y-u7ds"},
+    {day:3, topic:"Work & Energy", notes:"Work, kinetic and potential energy", practice:["Compute work/energy"], video:"https://www.youtube.com/watch?v=1mH2M7x3UEA"},
+  ],
+  thermodynamics: [
+    {day:1, topic:"Zeroth Law", notes:"Thermal equilibrium", practice:["Example problems"], video:"https://www.youtube.com/watch?v=cQZMQJKY0W0"},
+    {day:2, topic:"First Law", notes:"Conservation of energy", practice:["Heat/work problems"], video:"https://www.youtube.com/watch?v=RFLvXzVhUUE"},
+  ],
+  chemistry: [
+    {day:1, topic:"Atomic Structure", notes:"Atoms, protons, electrons, neutrons", practice:["Identify subatomic particles"], video:"https://www.youtube.com/watch?v=FSyAehMdpyI"},
+    {day:2, topic:"Periodic Table", notes:"Learn element properties", practice:["Predict element properties"], video:"https://www.youtube.com/watch?v=0RRVV4Diomg"},
+  ],
+  biology: [
+    {day:1, topic:"Cell Structure", notes:"Understand organelles", practice:["Label cell parts"], video:"https://www.youtube.com/watch?v=URUJD5NEXC8"},
+    {day:2, topic:"Genetics Basics", notes:"DNA, RNA, inheritance", practice:["Solve Punnett squares"], video:"https://www.youtube.com/watch?v=8mVO4ywrOG0"},
+  ]
+};
+
+// ======== START QUIZ =========
+function startQuiz(){
+  selectedSubject=document.getElementById('subjectSelect').value;
+  if(!selectedSubject){alert("Please select a subject."); return;}
+  document.getElementById('topicScreen').style.display='none';
+  document.getElementById('quizContainer').style.display='block';
+  answers=[]; currentQuestion=0;
+  showQuestion();
+  updateProgress();
+}
+
+function showQuestion(){
+  let html=`<p><b>${quizQuestions[currentQuestion]}</b></p>`;
+  quizOptions[currentQuestion].forEach((opt,idx)=>{
+    html+=`<button onclick="answer(${idx})">${opt}</button>`;
+  });
+  document.getElementById('quizContainer').innerHTML=html;
+}
+
+function answer(idx){
+  answers.push(idx);
+  currentQuestion++;
+  updateProgress();
+  if(currentQuestion<quizQuestions.length) showQuestion();
+  else finishQuiz();
+}
+
+function updateProgress(){
+  const percent=Math.floor((answers.length/quizQuestions.length)*100);
+  document.getElementById('progressBar').style.width=percent+'%';
+}
+
+// ======== FINISH QUIZ =========
+function finishQuiz(){
+  const score=Math.floor((answers.reduce((a,b)=>a+b,0)/(quizQuestions.length*3))*100);
+  let level='';
+  if(score>=75) level='Advanced';
+  else if(score>=50) level='Intermediate';
+  else level='Beginner';
+  streak=score>=50?streak+1:0;
+  localStorage.setItem('streak',streak);
+  document.getElementById('quizContainer').style.display='none';
+  generateAdaptivePlan(selectedSubject, level);
+}
+
+// ======== GENERATE 30-DAY PLAN =========
+function generateAdaptivePlan(subject, level){
+  const modules = subjects[subject];
+  let html=`<h2>🗓 30-Day Plan - ${subject.toUpperCase()} (${level})</h2>`;
+  for(let i=1;i<=30;i++){
+    const idx=(i-1)%modules.length;
+    const m=modules[idx];
+    const done=localStorage.getItem(`day_${subject}_${i}`)==='true'?' completed':'';
+    html+=`<div id="day${i}" class="module-day${done}" onclick="toggleModule('${subject}',${i})"><b>Day ${i}: ${m.topic}</b></div>`;
+  }
+  document.getElementById('planContainer').style.display='block';
+  document.getElementById('planContainer').innerHTML=html;
+  updateOverallProgress(subject);
+}
+
+function toggleModule(subject, day){
+  const modules = subjects[subject];
+  const idx=(day-1)%modules.length;
+  const data=modules[idx];
+  const elem=document.getElementById(`day${day}`);
+  const done=elem.classList.contains('completed');
+  if(done){
+    elem.classList.remove('completed');
+    localStorage.setItem(`day_${subject}_${day}`,'false');
+    removeModuleDetails(day);
+  }else{
+    elem.classList.add('completed');
+    localStorage.setItem(`day_${subject}_${day}`,'true');
+    showPopup(`✅ Completed: ${data.topic}`);
+    showModuleDetails(day,data);
+  }
+  updateOverallProgress(subject);
+}
+
+function showModuleDetails(day,data){
+  let html=`<div id="details${day}"><p><b>Notes:</b> ${data.notes}</p>`;
+  html+=`<p><b>Practice Questions:</b><ul>`;
+  data.practice.forEach(q=>{html+=`<li>${q}</li>`;});
+  html+=`</ul></p>`;
+  html+=`<p><b>Video:</b> <a href="${data.video}" target="_blank">YouTube</a></p></div>`;
+  document.getElementById(`day${day}`).insertAdjacentHTML('afterend',html);
+}
+
+function removeModuleDetails(day){
+  const elem=document.getElementById(`details${day}`);
+  if(elem) elem.remove();
+}
+
+function updateOverallProgress(subject){
+  let completed=0;
+  for(let i=1;i<=30;i++){
+    if(localStorage.getItem(`day_${subject}_${i}`)==='true') completed++;
+  }
+  document.getElementById('progressBar').style.width=Math.floor((completed/30)*100)+'%';
+}
+
+function showPopup(msg){
+  const popup=document.createElement('div');
+  popup.className='popup';
+  popup.innerText=msg;
+  document.getElementById('popupContainer').appendChild(popup);
+  setTimeout(()=>popup.remove(),3000);
+}
+</script>
+</body>
+</html>
